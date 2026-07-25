@@ -229,13 +229,12 @@ export default function DrawingCanvas({
       ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
       ctx.stroke();
     } else {
-      ctx.strokeRect(x, y, width, height);
       const fontSize = Math.max(16, Math.min(24, lineWidth * 4));
       ctx.font = `${fontSize}px sans-serif`;
       ctx.fillStyle = stroke;
       ctx.textBaseline = "top";
 
-      const padding = 10;
+      const padding = 0;
       const lines = wrapText(
         textBoxContent,
         Math.max(width - padding * 2, 80),
@@ -335,13 +334,12 @@ export default function DrawingCanvas({
         );
         previewCtx.stroke();
       } else {
-        previewCtx.strokeRect(x1, y1, width, height);
         const fontSize = Math.max(16, Math.min(24, brushSize * 4));
         previewCtx.font = `${fontSize}px sans-serif`;
         previewCtx.fillStyle = color;
         previewCtx.textBaseline = "top";
 
-        const padding = 10;
+        const padding = 0;
         const lines = wrapText(
           textBoxContent,
           Math.max(width - padding * 2, 80),
