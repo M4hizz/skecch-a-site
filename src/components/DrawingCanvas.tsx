@@ -13,6 +13,9 @@ import {
   X,
   ZoomIn,
   ZoomOut,
+  Square,
+  Circle,
+  Type,
 } from "lucide-react";
 import SamplePresets from "./SamplePresets";
 
@@ -21,15 +24,17 @@ interface DrawingCanvasProps {
   isGenerating: boolean;
 }
 
+type Tool = "pen" | "eraser" | "highlighter" | "rectangle" | "circle" | "text";
+
 const QUICK_COLORS = [
-  "#ffffff", // White
-  "#3b82f6", // Electric Blue
-  "#10b981", // Emerald Green
-  "#f59e0b", // Amber Yellow
-  "#ef4444", // Crimson Red
-  "#a855f7", // Neon Purple
-  "#f97316", // Orange
-  "#06b6d4", // Cyan
+  "#ffffff",
+  "#3b82f6",
+  "#10b981",
+  "#f59e0b",
+  "#ef4444",
+  "#a855f7",
+  "#f97316",
+  "#06b6d4",
 ];
 
 export default function DrawingCanvas({
@@ -37,17 +42,19 @@ export default function DrawingCanvas({
   isGenerating,
 }: DrawingCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const previewCanvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawingRef = useRef(false);
   const lastPointRef = useRef<{ x: number; y: number } | null>(null);
+  const shapeStartRef = useRef<{ x: number; y: number } | null>(null);
+  const shapeCurrentRef = useRef<{ x: number; y: number } | null>(null);
 
   const [color, setColor] = useState("#ffffff");
   const [brushSize, setBrushSize] = useState(3);
-  const [tool, setTool] = useState<"pen" | "eraser" | "highlighter">("pen");
+  const [tool, setTool] = useState<Tool>("pen");
   const [textPrompt, setTextPrompt] = useState("");
+  const [textBoxContent, setTextBoxContent] = useState("Type here");
   const [history, setHistory] = useState<string[]>([]);
-  const [showColorWheel, setShowColorWheel] = useState(false);
 
-  // Camera state
   const [showCamera, setShowCamera] = useState(false);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -56,6 +63,14 @@ export default function DrawingCanvas({
 
   const saveState = useCallback((canvas: HTMLCanvasElement) => {
     setHistory((prev) => [...prev, canvas.toDataURL()]);
+  }, []);
+
+  const clearPreviewCanvas = useCallback(() => {
+    const previewCanvas = previewCanvasRef.current;
+    const previewCtx = previewCanvas?.getContext("2d");
+    if (previewCanvas && previewCtx) {
+      previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+    }
   }, []);
 
   useEffect(() => {
@@ -70,7 +85,6 @@ export default function DrawingCanvas({
     }
   }, [saveState]);
 
-  // Camera stream cleanup
   useEffect(() => {
     return () => {
       if (cameraStream) {
@@ -79,7 +93,6 @@ export default function DrawingCanvas({
     };
   }, [cameraStream]);
 
-  // Attach camera stream to video element
   useEffect(() => {
     if (showCamera && videoRef.current && cameraStream) {
       videoRef.current.srcObject = cameraStream;
@@ -116,14 +129,12 @@ export default function DrawingCanvas({
     const mainCanvas = canvasRef.current;
     if (!video || !captureCanvas || !mainCanvas) return;
 
-    // Draw video frame to hidden canvas at video resolution
     captureCanvas.width = video.videoWidth;
     captureCanvas.height = video.videoHeight;
     const captureCtx = captureCanvas.getContext("2d");
     if (!captureCtx) return;
     captureCtx.drawImage(video, 0, 0);
 
-    // Draw captured frame onto main canvas
     const mainCtx = mainCanvas.getContext("2d");
     if (!mainCtx) return;
     mainCtx.fillStyle = "#000000";
@@ -131,7 +142,7 @@ export default function DrawingCanvas({
 
     const scale = Math.min(
       mainCanvas.width / captureCanvas.width,
-      mainCanvas.height / captureCanvas.height
+      mainCanvas.height / captureCanvas.height,
     );
     const x = mainCanvas.width / 2 - (captureCanvas.width / 2) * scale;
     const y = mainCanvas.height / 2 - (captureCanvas.height / 2) * scale;
@@ -140,8 +151,9 @@ export default function DrawingCanvas({
       x,
       y,
       captureCanvas.width * scale,
-      captureCanvas.height * scale
+      captureCanvas.height * scale,
     );
+    clearPreviewCanvas();
     saveState(mainCanvas);
     closeCamera();
   };
@@ -158,6 +170,89 @@ export default function DrawingCanvas({
     };
   };
 
+  const wrapText = (
+    text: string,
+    maxWidth: number,
+    ctx: CanvasRenderingContext2D,
+  ) => {
+    if (!text.trim()) return [""];
+
+    const words = text.split(/\s+/);
+    const lines: string[] = [];
+    let currentLine = "";
+
+    words.forEach((word) => {
+      const testLine = currentLine ? `${currentLine} ${word}` : word;
+      if (
+        ctx.measureText(testLine).width <= maxWidth ||
+        currentLine.length === 0
+      ) {
+        currentLine = testLine;
+      } else {
+        lines.push(currentLine);
+        currentLine = word;
+      }
+    });
+
+    if (currentLine) lines.push(currentLine);
+    return lines;
+  };
+
+  const drawShapeToCanvas = (
+    ctx: CanvasRenderingContext2D,
+    shape: "rectangle" | "circle" | "text",
+    start: { x: number; y: number },
+    end: { x: number; y: number },
+    stroke: string,
+    lineWidth: number,
+  ) => {
+    const x = Math.min(start.x, end.x);
+    const y = Math.min(start.y, end.y);
+    const width = Math.max(Math.abs(end.x - start.x), 40);
+    const height = Math.max(Math.abs(end.y - start.y), 40);
+
+    ctx.save();
+    ctx.strokeStyle = stroke;
+    ctx.fillStyle = "transparent";
+    ctx.lineWidth = Math.max(lineWidth, 1);
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+
+    if (shape === "rectangle") {
+      ctx.strokeRect(x, y, width, height);
+    } else if (shape === "circle") {
+      const centerX = (start.x + end.x) / 2;
+      const centerY = (start.y + end.y) / 2;
+      const radiusX = Math.max(Math.abs(end.x - start.x) / 2, 20);
+      const radiusY = Math.max(Math.abs(end.y - start.y) / 2, 20);
+      ctx.beginPath();
+      ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    } else {
+      ctx.strokeRect(x, y, width, height);
+      const fontSize = Math.max(16, Math.min(24, lineWidth * 4));
+      ctx.font = `${fontSize}px sans-serif`;
+      ctx.fillStyle = stroke;
+      ctx.textBaseline = "top";
+
+      const padding = 10;
+      const lines = wrapText(
+        textBoxContent,
+        Math.max(width - padding * 2, 80),
+        ctx,
+      );
+      const lineHeight = fontSize * 1.2;
+      let currentY = y + padding;
+
+      lines.forEach((line) => {
+        ctx.fillText(line, x + padding, currentY);
+        currentY += lineHeight;
+      });
+    }
+
+    ctx.restore();
+  };
+
   const startDrawing = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
@@ -166,6 +261,9 @@ export default function DrawingCanvas({
     const point = getCoordinates(e);
     isDrawingRef.current = true;
     lastPointRef.current = point;
+    shapeStartRef.current = point;
+    shapeCurrentRef.current = point;
+    clearPreviewCanvas();
 
     if (tool === "pen") {
       ctx.globalAlpha = 1.0;
@@ -176,10 +274,13 @@ export default function DrawingCanvas({
       ctx.beginPath();
       ctx.moveTo(point.x, point.y);
     } else if (tool === "highlighter") {
-      ctx.globalAlpha = 0.35;
+      ctx.globalAlpha = 0.25;
+      ctx.globalCompositeOperation = "screen";
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
       ctx.beginPath();
       ctx.moveTo(point.x, point.y);
-    } else {
+    } else if (tool === "eraser") {
       ctx.globalAlpha = 1.0;
       ctx.beginPath();
       ctx.moveTo(point.x, point.y);
@@ -195,18 +296,87 @@ export default function DrawingCanvas({
     const { x, y } = getCoordinates(e);
     const prev = lastPointRef.current;
 
-    ctx.lineWidth = tool === "highlighter" ? Math.max(brushSize * 5, 20) : brushSize;
+    if (tool === "rectangle" || tool === "circle" || tool === "text") {
+      shapeCurrentRef.current = { x, y };
+      const previewCanvas = previewCanvasRef.current;
+      const previewCtx = previewCanvas?.getContext("2d");
+      if (!previewCanvas || !previewCtx) return;
+
+      previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+      previewCtx.save();
+      previewCtx.strokeStyle = color;
+      previewCtx.fillStyle = "transparent";
+      previewCtx.lineWidth = Math.max(brushSize, 1);
+      previewCtx.lineCap = "round";
+      previewCtx.lineJoin = "round";
+
+      const start = shapeStartRef.current ?? { x, y };
+      const x1 = Math.min(start.x, x);
+      const y1 = Math.min(start.y, y);
+      const width = Math.max(Math.abs(x - start.x), 40);
+      const height = Math.max(Math.abs(y - start.y), 40);
+
+      if (tool === "rectangle") {
+        previewCtx.strokeRect(x1, y1, width, height);
+      } else if (tool === "circle") {
+        const centerX = (start.x + x) / 2;
+        const centerY = (start.y + y) / 2;
+        const radiusX = Math.max(Math.abs(x - start.x) / 2, 20);
+        const radiusY = Math.max(Math.abs(y - start.y) / 2, 20);
+        previewCtx.beginPath();
+        previewCtx.ellipse(
+          centerX,
+          centerY,
+          radiusX,
+          radiusY,
+          0,
+          0,
+          Math.PI * 2,
+        );
+        previewCtx.stroke();
+      } else {
+        previewCtx.strokeRect(x1, y1, width, height);
+        const fontSize = Math.max(16, Math.min(24, brushSize * 4));
+        previewCtx.font = `${fontSize}px sans-serif`;
+        previewCtx.fillStyle = color;
+        previewCtx.textBaseline = "top";
+
+        const padding = 10;
+        const lines = wrapText(
+          textBoxContent,
+          Math.max(width - padding * 2, 80),
+          previewCtx,
+        );
+        const lineHeight = fontSize * 1.2;
+        let currentY = y1 + padding;
+
+        lines.forEach((line) => {
+          previewCtx.fillText(line, x1 + padding, currentY);
+          currentY += lineHeight;
+        });
+      }
+
+      previewCtx.restore();
+      lastPointRef.current = { x, y };
+      return;
+    }
+
+    ctx.lineWidth =
+      tool === "highlighter" ? Math.max(brushSize * 5, 20) : brushSize;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
 
     if (tool === "eraser") {
       ctx.globalAlpha = 1.0;
+      ctx.globalCompositeOperation = "source-over";
       ctx.strokeStyle = "#000000";
     } else if (tool === "highlighter") {
-      ctx.globalAlpha = 0.35;
+      ctx.globalAlpha = 0.25;
+      ctx.globalCompositeOperation = "screen";
       ctx.strokeStyle = color;
     } else {
       ctx.globalAlpha = 1.0;
+      ctx.globalCompositeOperation = "source-over";
       ctx.strokeStyle = color;
     }
 
@@ -217,18 +387,57 @@ export default function DrawingCanvas({
       ctx.moveTo(x, y);
     }
     ctx.lineTo(x, y);
-    ctx.stroke();
+
+    if (tool === "highlighter") {
+      const highlightWidth = Math.max(brushSize * 6, 20);
+      const edgeWidth = Math.max(brushSize * 0.9, 2);
+      ctx.lineWidth = highlightWidth;
+      ctx.stroke();
+
+      ctx.globalAlpha = 0.95;
+      ctx.lineWidth = edgeWidth;
+      ctx.stroke();
+    } else {
+      ctx.stroke();
+    }
+
     lastPointRef.current = { x, y };
   };
 
   const stopDrawing = () => {
     isDrawingRef.current = false;
     lastPointRef.current = null;
+
+    if (tool === "rectangle" || tool === "circle" || tool === "text") {
+      const start = shapeStartRef.current;
+      const end = shapeCurrentRef.current;
+      const canvas = canvasRef.current;
+      const ctx = canvas?.getContext("2d");
+      if (ctx && canvas && start && end) {
+        ctx.globalAlpha = 1.0;
+        ctx.globalCompositeOperation = "source-over";
+        drawShapeToCanvas(
+          ctx,
+          tool === "text" ? "text" : tool === "circle" ? "circle" : "rectangle",
+          start,
+          end,
+          color,
+          brushSize,
+        );
+        saveState(canvas);
+      }
+      clearPreviewCanvas();
+      shapeStartRef.current = null;
+      shapeCurrentRef.current = null;
+      return;
+    }
+
     const canvas = canvasRef.current;
     if (canvas) {
       const ctx = canvas.getContext("2d");
       if (ctx) {
         ctx.globalAlpha = 1.0;
+        ctx.globalCompositeOperation = "source-over";
         ctx.beginPath();
         saveState(canvas);
       }
@@ -240,8 +449,10 @@ export default function DrawingCanvas({
     const ctx = canvas?.getContext("2d");
     if (ctx && canvas) {
       ctx.globalAlpha = 1.0;
+      ctx.globalCompositeOperation = "source-over";
       ctx.fillStyle = "#000000";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
+      clearPreviewCanvas();
       saveState(canvas);
     }
   };
@@ -260,10 +471,12 @@ export default function DrawingCanvas({
         img.src = previousState;
         img.onload = () => {
           ctx.globalAlpha = 1.0;
+          ctx.globalCompositeOperation = "source-over";
           ctx.clearRect(0, 0, canvas.width, canvas.height);
           ctx.drawImage(img, 0, 0);
         };
       }
+      clearPreviewCanvas();
     }
   };
 
@@ -278,15 +491,17 @@ export default function DrawingCanvas({
           const ctx = canvas?.getContext("2d");
           if (ctx && canvas) {
             ctx.globalAlpha = 1.0;
+            ctx.globalCompositeOperation = "source-over";
             ctx.fillStyle = "#000000";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             const scale = Math.min(
               canvas.width / img.width,
-              canvas.height / img.height
+              canvas.height / img.height,
             );
             const x = canvas.width / 2 - (img.width / 2) * scale;
             const y = canvas.height / 2 - (img.height / 2) * scale;
             ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+            clearPreviewCanvas();
             saveState(canvas);
           }
         };
@@ -304,9 +519,11 @@ export default function DrawingCanvas({
       const ctx = canvas?.getContext("2d");
       if (ctx && canvas) {
         ctx.globalAlpha = 1.0;
+        ctx.globalCompositeOperation = "source-over";
         ctx.fillStyle = "#000000";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        clearPreviewCanvas();
         saveState(canvas);
       }
     };
@@ -321,12 +538,19 @@ export default function DrawingCanvas({
     }
   };
 
-  const toolBtn = (id: "pen" | "eraser" | "highlighter", icon: React.ReactNode, label: string, activeBg: string) => (
+  const toolBtn = (
+    id: Tool,
+    icon: React.ReactNode,
+    label: string,
+    activeBg: string,
+  ) => (
     <button
       onClick={() => setTool(id)}
       title={label}
       className={`p-2 rounded flex items-center gap-1 text-xs transition-colors ${
-        tool === id ? `${activeBg} text-white` : "text-neutral-400 hover:text-white"
+        tool === id
+          ? `${activeBg} text-white`
+          : "text-neutral-400 hover:text-white"
       }`}
     >
       {icon}
@@ -335,7 +559,6 @@ export default function DrawingCanvas({
 
   return (
     <div className="flex flex-col h-full bg-neutral-900 text-white relative">
-      {/* Camera Modal */}
       {showCamera && (
         <div className="absolute inset-0 z-50 bg-black/90 flex flex-col items-center justify-center gap-4 p-4">
           <div className="w-full max-w-2xl rounded-xl overflow-hidden border border-neutral-700 bg-neutral-900 flex flex-col">
@@ -344,13 +567,18 @@ export default function DrawingCanvas({
                 <Camera size={18} className="text-blue-400" />
                 Camera Capture
               </span>
-              <button onClick={closeCamera} className="p-1 rounded hover:bg-neutral-700 text-neutral-400 hover:text-white">
+              <button
+                onClick={closeCamera}
+                className="p-1 rounded hover:bg-neutral-700 text-neutral-400 hover:text-white"
+              >
                 <X size={18} />
               </button>
             </div>
 
             {cameraError ? (
-              <div className="p-8 text-center text-red-400 text-sm">{cameraError}</div>
+              <div className="p-8 text-center text-red-400 text-sm">
+                {cameraError}
+              </div>
             ) : (
               <div className="relative bg-black">
                 <video
@@ -380,36 +608,41 @@ export default function DrawingCanvas({
               </button>
             </div>
           </div>
-          {/* Hidden canvas for capture */}
           <canvas ref={photoCaptureCanvasRef} className="hidden" />
         </div>
       )}
 
-      {/* Toolbar */}
       <div className="flex items-center gap-1 px-2 py-2 border-b border-neutral-800 bg-neutral-950 flex-wrap">
-        {/* Tool Group */}
         <div className="flex items-center gap-0.5 bg-neutral-900 rounded-lg p-1">
           {toolBtn("pen", <Pen size={16} />, "Pen", "bg-neutral-700")}
           {toolBtn("eraser", <Eraser size={16} />, "Eraser", "bg-neutral-700")}
           {toolBtn(
             "highlighter",
             <Highlighter size={16} className="text-yellow-400" />,
-            "Animation Highlighter — marks areas to animate",
-            "bg-yellow-500/20 border border-yellow-500/40"
+            "Animation Highlighter",
+            "bg-yellow-500/20 border border-yellow-500/40",
           )}
+          {toolBtn(
+            "rectangle",
+            <Square size={16} />,
+            "Rectangle",
+            "bg-neutral-700",
+          )}
+          {toolBtn("circle", <Circle size={16} />, "Circle", "bg-neutral-700")}
+          {toolBtn("text", <Type size={16} />, "Text box", "bg-neutral-700")}
         </div>
 
         <div className="h-6 w-px bg-neutral-700 mx-1" />
 
-        {/* Color Wheel + Quick Palette */}
         <div className="relative flex items-center gap-1">
-          {/* Quick color swatches */}
-          <div className="flex gap-1 items-center flex-wrap max-w-[160px]">
+          <div className="flex gap-1 items-center flex-wrap max-w-40">
             {QUICK_COLORS.map((c) => (
               <button
                 key={c}
                 title={c}
-                onClick={() => { setColor(c); setShowColorWheel(false); }}
+                onClick={() => {
+                  setColor(c);
+                }}
                 className={`w-5 h-5 rounded-full border-2 transition-transform hover:scale-110 ${
                   color === c ? "border-white scale-125" : "border-transparent"
                 }`}
@@ -417,13 +650,14 @@ export default function DrawingCanvas({
               />
             ))}
           </div>
-          {/* Full color wheel (native picker) */}
+
           <div className="relative" title="Custom color wheel">
             <label className="cursor-pointer">
               <div
                 className="w-7 h-7 rounded-full border-2 border-dashed border-neutral-500 hover:border-white transition-colors flex items-center justify-center text-[10px] font-bold"
                 style={{
-                  background: "conic-gradient(red, yellow, lime, cyan, blue, magenta, red)",
+                  background:
+                    "conic-gradient(red, yellow, lime, cyan, blue, magenta, red)",
                 }}
                 title="Open color wheel"
               />
@@ -439,7 +673,6 @@ export default function DrawingCanvas({
 
         <div className="h-6 w-px bg-neutral-700 mx-1" />
 
-        {/* Brush size */}
         <div className="flex items-center gap-2">
           <ZoomOut size={12} className="text-neutral-400" />
           <input
@@ -454,17 +687,40 @@ export default function DrawingCanvas({
           <ZoomIn size={12} className="text-neutral-400" />
         </div>
 
-        <div className="h-6 w-px bg-neutral-700 mx-1 flex-grow" />
+        <div className="h-6 w-px bg-neutral-700 mx-1" />
 
-        {/* Actions */}
+        <div className="flex items-center gap-2 rounded-lg border border-neutral-800 bg-neutral-900 px-2 py-1.5 min-w-[220px]">
+          <Type size={14} className="text-neutral-400" />
+          <input
+            type="text"
+            value={textBoxContent}
+            onChange={(e) => setTextBoxContent(e.target.value)}
+            placeholder="Text for text box"
+            className="bg-transparent text-sm text-white outline-none w-full"
+          />
+        </div>
+
+        <div className="h-6 w-px bg-neutral-700 mx-1 grow" />
+
         <div className="flex items-center gap-0.5">
-          <button onClick={undo} className="p-2 text-neutral-400 hover:text-white rounded" title="Undo">
+          <button
+            onClick={undo}
+            className="p-2 text-neutral-400 hover:text-white rounded"
+            title="Undo"
+          >
             <RotateCcw size={16} />
           </button>
-          <button onClick={clearCanvas} className="p-2 text-neutral-400 hover:text-red-400 rounded" title="Clear Canvas">
+          <button
+            onClick={clearCanvas}
+            className="p-2 text-neutral-400 hover:text-red-400 rounded"
+            title="Clear Canvas"
+          >
             <Trash2 size={16} />
           </button>
-          <label className="p-2 text-neutral-400 hover:text-white cursor-pointer rounded" title="Upload Image">
+          <label
+            className="p-2 text-neutral-400 hover:text-white cursor-pointer rounded"
+            title="Upload Image"
+          >
             <Upload size={16} />
             <input
               type="file"
@@ -483,18 +739,17 @@ export default function DrawingCanvas({
         </div>
       </div>
 
-      {/* Highlighter hint banner */}
       {tool === "highlighter" && (
         <div className="bg-yellow-500/10 border-b border-yellow-500/30 px-4 py-1.5 text-xs text-yellow-400 flex items-center gap-2">
           <Highlighter size={13} />
           <span>
-            <strong>Animation Highlighter active:</strong> Draw over components you want animated — Gemini will add CSS transitions/animations to those areas.
+            <strong>Animation Highlighter active:</strong> Draw over components
+            you want animated.
           </span>
         </div>
       )}
 
-      {/* Canvas Area */}
-      <div className="flex-grow relative overflow-hidden bg-black flex items-center justify-center">
+      <div className="grow relative overflow-hidden bg-black flex items-center justify-center">
         <canvas
           ref={canvasRef}
           width={800}
@@ -509,8 +764,13 @@ export default function DrawingCanvas({
           onPointerCancel={stopDrawing}
           onPointerLeave={stopDrawing}
         />
+        <canvas
+          ref={previewCanvasRef}
+          width={800}
+          height={600}
+          className="absolute inset-0 w-full h-full pointer-events-none"
+        />
 
-        {/* Highlighter tool indicator on canvas */}
         {tool === "highlighter" && (
           <div className="absolute bottom-2 right-2 bg-yellow-500/20 border border-yellow-500/40 rounded px-2 py-1 text-xs text-yellow-400 pointer-events-none">
             🎨 Highlighting for animation
@@ -518,14 +778,13 @@ export default function DrawingCanvas({
         )}
       </div>
 
-      {/* Prompts and Action */}
       <div className="p-3 border-t border-neutral-800 bg-neutral-950 flex flex-col gap-3">
         <SamplePresets onLoadPreset={loadPreset} />
         <div className="flex gap-2">
           <input
             type="text"
             placeholder="e.g., Make it dark mode and add a search bar..."
-            className="flex-grow bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-blue-500"
+            className="grow bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-blue-500"
             value={textPrompt}
             onChange={(e) => setTextPrompt(e.target.value)}
             disabled={isGenerating}
@@ -533,7 +792,7 @@ export default function DrawingCanvas({
           <button
             onClick={submitGenerate}
             disabled={isGenerating}
-            className="bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-500 hover:to-violet-500 text-white font-medium px-6 py-2 rounded-lg flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap shadow-lg"
+            className="bg-linear-to-r from-blue-600 to-violet-600 hover:from-blue-500 hover:to-violet-500 text-white font-medium px-6 py-2 rounded-lg flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap shadow-lg"
           >
             {isGenerating ? (
               <span className="flex items-center gap-2">

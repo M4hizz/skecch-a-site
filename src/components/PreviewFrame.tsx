@@ -1,8 +1,16 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import AgentLogTerminal from './AgentLogTerminal';
-import { Copy, Check, Layout, Code, Terminal, Maximize2, Minimize2 } from 'lucide-react';
+import { useState } from "react";
+import AgentLogTerminal from "./AgentLogTerminal";
+import {
+  Copy,
+  Check,
+  Layout,
+  Code,
+  Terminal,
+  Maximize2,
+  Minimize2,
+} from "lucide-react";
 
 interface PreviewFrameProps {
   generatedHtml: string;
@@ -10,19 +18,25 @@ interface PreviewFrameProps {
   isGenerating: boolean;
 }
 
-export default function PreviewFrame({ generatedHtml, logs, isGenerating }: PreviewFrameProps) {
-  const [activeTab, setActiveTab] = useState<'preview' | 'code' | 'logs'>('preview');
+export default function PreviewFrame({
+  generatedHtml,
+  logs,
+  isGenerating,
+}: PreviewFrameProps) {
+  const [activeTab, setActiveTab] = useState<"preview" | "code" | "logs">(
+    "preview",
+  );
   const [copied, setCopied] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Auto-switch to logs when generating starts
-  if (isGenerating && activeTab !== 'logs' && logs.length > 0) {
-    setActiveTab('logs');
+  if (isGenerating && activeTab !== "logs" && logs.length > 0) {
+    setActiveTab("logs");
   }
 
   // Auto-switch to preview when generation completes successfully
-  if (!isGenerating && generatedHtml && activeTab === 'logs') {
-    setActiveTab('preview');
+  if (!isGenerating && generatedHtml && activeTab === "logs") {
+    setActiveTab("preview");
   }
 
   const copyCode = () => {
@@ -32,36 +46,40 @@ export default function PreviewFrame({ generatedHtml, logs, isGenerating }: Prev
   };
 
   return (
-    <div className={`flex flex-col h-full bg-neutral-900 text-white ${isFullscreen ? 'fixed inset-0 z-50 bg-neutral-950 p-4' : ''}`}>
+    <div
+      className={`flex flex-col h-full bg-neutral-900 text-white ${isFullscreen ? "fixed inset-0 z-50 bg-neutral-950 p-4" : ""}`}
+    >
       {/* Tabs */}
       <div className="flex bg-neutral-950 border-b border-neutral-800 justify-between items-center pr-2">
         <div className="flex">
           <button
-            onClick={() => setActiveTab('preview')}
-            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${activeTab === 'preview' ? 'bg-neutral-900 text-white border-t-2 border-t-blue-500' : 'text-neutral-400 hover:text-white border-t-2 border-transparent'}`}
+            onClick={() => setActiveTab("preview")}
+            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${activeTab === "preview" ? "bg-neutral-900 text-white border-t-2 border-t-blue-500" : "text-neutral-400 hover:text-white border-t-2 border-transparent"}`}
           >
             <Layout size={16} />
             App Preview
           </button>
           <button
-            onClick={() => setActiveTab('code')}
-            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${activeTab === 'code' ? 'bg-neutral-900 text-white border-t-2 border-t-blue-500' : 'text-neutral-400 hover:text-white border-t-2 border-transparent'}`}
+            onClick={() => setActiveTab("code")}
+            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${activeTab === "code" ? "bg-neutral-900 text-white border-t-2 border-t-blue-500" : "text-neutral-400 hover:text-white border-t-2 border-transparent"}`}
           >
             <Code size={16} />
             Source Code
           </button>
           <button
-            onClick={() => setActiveTab('logs')}
-            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${activeTab === 'logs' ? 'bg-neutral-900 text-white border-t-2 border-t-blue-500' : 'text-neutral-400 hover:text-white border-t-2 border-transparent'}`}
+            onClick={() => setActiveTab("logs")}
+            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${activeTab === "logs" ? "bg-neutral-900 text-white border-t-2 border-t-blue-500" : "text-neutral-400 hover:text-white border-t-2 border-transparent"}`}
           >
             <Terminal size={16} />
             Agent Logs
-            {isGenerating && <span className="ml-1 w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>}
+            {isGenerating && (
+              <span className="ml-1 w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+            )}
           </button>
         </div>
 
         {/* Fullscreen Toggle Button */}
-        {activeTab === 'preview' && generatedHtml && (
+        {activeTab === "preview" && generatedHtml && (
           <button
             onClick={() => setIsFullscreen(!isFullscreen)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700 text-xs font-medium text-neutral-300 hover:text-white transition-colors"
@@ -75,13 +93,16 @@ export default function PreviewFrame({ generatedHtml, logs, isGenerating }: Prev
 
       {/* Content */}
       <div className="flex-grow relative bg-white overflow-hidden rounded-b-xl">
-        {activeTab === 'preview' && (
+        {activeTab === "preview" && (
           <div className="w-full h-full bg-white relative">
             {!generatedHtml && !isGenerating ? (
               <div className="absolute inset-0 flex items-center justify-center text-neutral-400 bg-neutral-900">
                 <div className="text-center">
                   <Layout className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                  <p>Draw a wireframe and click "Vibe Code App" to see it here.</p>
+                  <p>
+                    Draw a wireframe and click &quot;Vibe Code App&quot; to see
+                    it here.
+                  </p>
                 </div>
               </div>
             ) : (
@@ -95,7 +116,7 @@ export default function PreviewFrame({ generatedHtml, logs, isGenerating }: Prev
           </div>
         )}
 
-        {activeTab === 'code' && (
+        {activeTab === "code" && (
           <div className="w-full h-full bg-[#1e1e1e] overflow-auto relative p-4 group">
             {!generatedHtml ? (
               <div className="h-full flex items-center justify-center text-neutral-500">
@@ -107,8 +128,12 @@ export default function PreviewFrame({ generatedHtml, logs, isGenerating }: Prev
                   onClick={copyCode}
                   className="absolute top-4 right-4 bg-neutral-700 hover:bg-neutral-600 p-2 rounded text-white transition-opacity opacity-0 group-hover:opacity-100 flex items-center gap-2 text-sm"
                 >
-                  {copied ? <Check size={16} className="text-green-400" /> : <Copy size={16} />}
-                  {copied ? 'Copied!' : 'Copy Code'}
+                  {copied ? (
+                    <Check size={16} className="text-green-400" />
+                  ) : (
+                    <Copy size={16} />
+                  )}
+                  {copied ? "Copied!" : "Copy Code"}
                 </button>
                 <pre className="text-sm font-mono text-neutral-300">
                   <code>{generatedHtml}</code>
@@ -118,9 +143,7 @@ export default function PreviewFrame({ generatedHtml, logs, isGenerating }: Prev
           </div>
         )}
 
-        {activeTab === 'logs' && (
-          <AgentLogTerminal logs={logs} />
-        )}
+        {activeTab === "logs" && <AgentLogTerminal logs={logs} />}
       </div>
     </div>
   );
