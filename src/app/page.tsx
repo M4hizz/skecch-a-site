@@ -86,7 +86,7 @@ export default function VibeStudioPage() {
     <div className="min-h-screen bg-neutral-950 text-white p-4">
       <header className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">
-          Skecch-a-site
+          Skecch-a-Site
         </h1>
         <div className="text-sm text-neutral-400">
           Powered by Gemini 3.6 Flash &amp; Antigravity Sandbox Agent
