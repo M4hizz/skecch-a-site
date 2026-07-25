@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import AgentLogTerminal from './AgentLogTerminal';
-import { Copy, Check, Layout, Code, Terminal } from 'lucide-react';
+import { Copy, Check, Layout, Code, Terminal, Maximize2, Minimize2 } from 'lucide-react';
 
 interface PreviewFrameProps {
   generatedHtml: string;
@@ -13,6 +13,7 @@ interface PreviewFrameProps {
 export default function PreviewFrame({ generatedHtml, logs, isGenerating }: PreviewFrameProps) {
   const [activeTab, setActiveTab] = useState<'preview' | 'code' | 'logs'>('preview');
   const [copied, setCopied] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Auto-switch to logs when generating starts
   if (isGenerating && activeTab !== 'logs' && logs.length > 0) {
@@ -31,35 +32,49 @@ export default function PreviewFrame({ generatedHtml, logs, isGenerating }: Prev
   };
 
   return (
-    <div className="flex flex-col h-full bg-neutral-900 text-white">
+    <div className={`flex flex-col h-full bg-neutral-900 text-white ${isFullscreen ? 'fixed inset-0 z-50 bg-neutral-950 p-4' : ''}`}>
       {/* Tabs */}
-      <div className="flex bg-neutral-950 border-b border-neutral-800">
-        <button
-          onClick={() => setActiveTab('preview')}
-          className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${activeTab === 'preview' ? 'bg-neutral-900 text-white border-t-2 border-t-blue-500' : 'text-neutral-400 hover:text-white border-t-2 border-transparent'}`}
-        >
-          <Layout size={16} />
-          App Preview
-        </button>
-        <button
-          onClick={() => setActiveTab('code')}
-          className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${activeTab === 'code' ? 'bg-neutral-900 text-white border-t-2 border-t-blue-500' : 'text-neutral-400 hover:text-white border-t-2 border-transparent'}`}
-        >
-          <Code size={16} />
-          Source Code
-        </button>
-        <button
-          onClick={() => setActiveTab('logs')}
-          className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${activeTab === 'logs' ? 'bg-neutral-900 text-white border-t-2 border-t-blue-500' : 'text-neutral-400 hover:text-white border-t-2 border-transparent'}`}
-        >
-          <Terminal size={16} />
-          Agent Logs
-          {isGenerating && <span className="ml-1 w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>}
-        </button>
+      <div className="flex bg-neutral-950 border-b border-neutral-800 justify-between items-center pr-2">
+        <div className="flex">
+          <button
+            onClick={() => setActiveTab('preview')}
+            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${activeTab === 'preview' ? 'bg-neutral-900 text-white border-t-2 border-t-blue-500' : 'text-neutral-400 hover:text-white border-t-2 border-transparent'}`}
+          >
+            <Layout size={16} />
+            App Preview
+          </button>
+          <button
+            onClick={() => setActiveTab('code')}
+            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${activeTab === 'code' ? 'bg-neutral-900 text-white border-t-2 border-t-blue-500' : 'text-neutral-400 hover:text-white border-t-2 border-transparent'}`}
+          >
+            <Code size={16} />
+            Source Code
+          </button>
+          <button
+            onClick={() => setActiveTab('logs')}
+            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${activeTab === 'logs' ? 'bg-neutral-900 text-white border-t-2 border-t-blue-500' : 'text-neutral-400 hover:text-white border-t-2 border-transparent'}`}
+          >
+            <Terminal size={16} />
+            Agent Logs
+            {isGenerating && <span className="ml-1 w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>}
+          </button>
+        </div>
+
+        {/* Fullscreen Toggle Button */}
+        {activeTab === 'preview' && generatedHtml && (
+          <button
+            onClick={() => setIsFullscreen(!isFullscreen)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700 text-xs font-medium text-neutral-300 hover:text-white transition-colors"
+            title={isFullscreen ? "Exit Fullscreen" : "Fullscreen Preview"}
+          >
+            {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+            {isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+          </button>
+        )}
       </div>
 
       {/* Content */}
-      <div className="flex-grow relative bg-white">
+      <div className="flex-grow relative bg-white overflow-hidden rounded-b-xl">
         {activeTab === 'preview' && (
           <div className="w-full h-full bg-white relative">
             {!generatedHtml && !isGenerating ? (
