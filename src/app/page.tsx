@@ -64,7 +64,8 @@ export default function VibeStudioPage() {
         console.error(data.error);
         setAgentLogs((prev) => [
           ...prev,
-          "❌ [00:10] Antigravity Sandbox Error: " + (data.error ?? "Failed to generate app."),
+          "❌ [00:10] Antigravity Sandbox Error: " +
+            (data.error ?? "Failed to generate app."),
         ]);
       }
     } catch (err) {
@@ -85,7 +86,7 @@ export default function VibeStudioPage() {
     <div className="min-h-screen bg-neutral-950 text-white p-4">
       <header className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">
-          Napkin-to-App (Vibe Studio)
+          Skecch-a-site
         </h1>
         <div className="text-sm text-neutral-400">
           Powered by Gemini 3.6 Flash &amp; Antigravity Sandbox Agent
