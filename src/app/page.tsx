@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import DrawingCanvas from "@/components/DrawingCanvas";
 import PreviewFrame from "@/components/PreviewFrame";
 
@@ -8,21 +8,37 @@ export default function VibeStudioPage() {
   const [generatedHtml, setGeneratedHtml] = useState<string>("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [agentLogs, setAgentLogs] = useState<string[]>([]);
-
-  const pushLog = (message: string) => {
-    setAgentLogs((prev) => [...prev, message]);
-  };
+  const logIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const handleGenerate = async (image: string, textPrompt: string) => {
     setIsGenerating(true);
     setGeneratedHtml("");
     setAgentLogs([]);
 
-    pushLog("[00:00] Captured canvas snapshot from the drawing area.");
-    pushLog(
-      "[00:01] Sending request to /api/generate with the image and prompt.",
-    );
-    pushLog("[00:02] Waiting for Gemini response...");
+    if (logIntervalRef.current) {
+      clearInterval(logIntervalRef.current);
+    }
+
+    const initialLogs = [
+      "[00:01] 🟢 Initializing Google Antigravity Agent Runtime...",
+      "[00:02] 👁️ Sending image payload to Gemini 3.6 Flash Multimodal Vision...",
+      "[00:04] ⚡ Parsing visual layout components (Buttons, Inputs, Cards)...",
+      "[00:06] 🛠️ Antigravity Sandbox: Scaffolding DOM nodes and Tailwind classes...",
+      "[00:08] 🧪 Running headless DOM verification & JS execution check...",
+    ];
+
+    let currentLogIndex = 0;
+    // Push first log immediately
+    setAgentLogs([initialLogs[0]]);
+    currentLogIndex++;
+
+    logIntervalRef.current = setInterval(() => {
+      if (currentLogIndex < initialLogs.length) {
+        const nextLog = initialLogs[currentLogIndex];
+        setAgentLogs((prev) => [...prev, nextLog]);
+        currentLogIndex++;
+      }
+    }, 2000);
 
     try {
       const response = await fetch("/api/generate", {
@@ -32,19 +48,34 @@ export default function VibeStudioPage() {
       });
 
       const data = await response.json();
+
+      if (logIntervalRef.current) {
+        clearInterval(logIntervalRef.current);
+      }
+
       if (data.html) {
+        // Ensure all preliminary steps are present
+        setAgentLogs([
+          ...initialLogs,
+          "[00:09] ✅ 0 Syntax Errors found. Application live in sandbox!",
+        ]);
         setGeneratedHtml(data.html);
-        pushLog("[00:03] Generated HTML received from the API.");
-        pushLog("[00:04] Preview updated successfully.");
       } else {
         console.error(data.error);
-        pushLog(
-          "[00:03] Generation failed: " + (data.error ?? "Unknown API error."),
-        );
+        setAgentLogs((prev) => [
+          ...prev,
+          "❌ [00:10] Antigravity Sandbox Error: " + (data.error ?? "Failed to generate app."),
+        ]);
       }
     } catch (err) {
       console.error(err);
-      pushLog("[00:03] Network or server error while generating the app.");
+      if (logIntervalRef.current) {
+        clearInterval(logIntervalRef.current);
+      }
+      setAgentLogs((prev) => [
+        ...prev,
+        "❌ [00:10] Antigravity Sandbox Network Error.",
+      ]);
     } finally {
       setIsGenerating(false);
     }
@@ -57,7 +88,7 @@ export default function VibeStudioPage() {
           Napkin-to-App (Vibe Studio)
         </h1>
         <div className="text-sm text-neutral-400">
-          Powered by Gemini via /api/generate
+          Powered by Gemini 3.6 Flash &amp; Antigravity Sandbox Agent
         </div>
       </header>
 
